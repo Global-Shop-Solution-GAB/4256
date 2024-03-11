@@ -1,0 +1,417 @@
+Program.Sub.ScreenSU.Start
+Gui.frmSelection..Create
+Gui.frmSelection..Caption("Week selection")
+Gui.frmSelection..Size(2175,2235)
+Gui.frmSelection..MinX(0)
+Gui.frmSelection..MinY(0)
+Gui.frmSelection..Position(0,0)
+Gui.frmSelection..BackColor(-2147483633)
+Gui.frmSelection..MaxButton(False)
+Gui.frmSelection..MinButton(False)
+Gui.frmSelection..MousePointer(0)
+Gui.frmSelection..Event(UnLoad,frmSelection_UnLoad)
+Gui.frmSelection.opt1.Create(Option)
+Gui.frmSelection.opt1.Size(1575,255)
+Gui.frmSelection.opt1.Position(195,195)
+Gui.frmSelection.opt1.Caption("Week 1")
+Gui.frmSelection.opt2.Create(Option)
+Gui.frmSelection.opt2.Size(1575,255)
+Gui.frmSelection.opt2.Position(195,630)
+Gui.frmSelection.opt2.Caption("Week 2")
+Gui.frmSelection.cmdOk.Create(Button)
+Gui.frmSelection.cmdOk.Size(855,375)
+Gui.frmSelection.cmdOk.Position(240,1170)
+Gui.frmSelection.cmdOk.Caption("&OK")
+Gui.frmSelection.cmdOk.Event(Click,cmdOk_Click)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+'Shop Floor> Transactions> Transfer Labor to Payroll
+'Hook 15290
+'Coded by RAN for AECOM
+
+V.Local.sError.Declare(String)
+v.Global.lSel.Declare(long)
+
+f.Intrinsic.Control.If(v.Caller.Hook,=, "15290")
+	gui.frmSelection..Show 
+Function.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_PayrollExport.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+Program.Sub.Writetofile.Start
+F.Intrinsic.Control.SetErrorHandler("Writetofile_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sfullpath.Declare(String)
+V.Local.sdate.Declare(String)
+V.Local.sdate1.Declare(String)
+V.Local.sfile.Declare(String)
+V.Local.bexists.Declare(Boolean)
+V.Local.sfilename.Declare(String)
+V.Local.sExportHdr.Declare(String)
+V.Local.sExportDet.Declare(String)
+
+	'build the filepath
+	F.Intrinsic.String.build("{0}{1}",V.Caller.FilesDir,"\Employee Hours",V.Local.sfile)
+	'see if the folder exists
+	F.Intrinsic.File.Exists(V.Local.sfile,V.Local.bexists)
+	'if the file doesn't exists create it
+	F.Intrinsic.Control.If(V.Local.bexists,=,False)
+		F.Intrinsic.File.CreateDir(V.Local.sfile)
+	F.Intrinsic.Control.EndIf
+	
+	
+'	'set the date and format it
+'	Function.Intrinsic.String.Format (V.Ambient.Date ,"YYYYDDMM",V.Local.sdate)
+'	Function.Intrinsic.String.Format (V.Ambient.Time ,"HHNNSS",V.Local.sdate1)
+'	f.Intrinsic.String.Build("{0} {1}",V.Local.sdate,V.Local.sdate1,V.Local.sdate)
+'	'build the filename
+''	F.Intrinsic.String.Build("{0}_HDR.csv",V.Local.sDate,V.Local.sfilename)
+'	F.Intrinsic.String.Build("{0}_Export.tme",V.Local.sDate,V.Local.sfilename)
+	
+F.Intrinsic.Debug.Stop
+
+'	'set the date and format it  -- NEW FORMAT
+    'build the filename
+	f.Intrinsic.String.Build("WHJW.{0}.tme",v.Args.TME,V.Local.sfilename)
+
+	
+	
+	'build the full path
+	F.Intrinsic.String.Build("{0}\{1}",V.local.sfile,V.Local.sfilename,V.Local.sfullpath)
+	F.Intrinsic.File.String2File(V.Local.sfullpath,v.Args.Hdr)
+
+'	F.Intrinsic.String.Build("{0}_DETAIL.csv",V.Local.sDate,V.Local.sfilename)
+'	F.Intrinsic.String.Build("{0}\{1}",V.local.sfile,V.Local.sfilename,V.Local.sfullpath)
+'	F.Intrinsic.File.String2File(V.Local.sfullpath,v.Args.Det)
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Writetofile_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_PayrollExport.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Writetofile.End
+
+Program.Sub.GenerateFile.Start
+F.Intrinsic.Control.SetErrorHandler("GenerateFile_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+V.Local.sCymd.Declare(String)
+V.Local.sQuery.Declare(String)
+V.Local.sTime.Declare(String)
+V.Local.sRecordHDR.Declare(String)
+V.Local.sRecordDET.Declare(String)
+V.Local.fRate.Declare(float)
+V.Local.fAmount.Declare(float)
+V.Local.sEmp.Declare(String)
+V.Local.sEC.Declare(String)
+
+
+variable.local.rDate.Declare(Date)
+V.Local.RECID.Declare(String,"H")
+V.Local.sPAYNAM.Declare(String,"WHJW")
+V.Local.sREFNUM.Declare(String)
+V.Local.PPDATE.Declare(Date)
+V.Local.WKDATE.Declare(Date)
+V.Local.LINECNT.Declare(long)
+V.Local.sSUMHOURS.Declare(String)
+V.Local.sSUMHOURSHDR.Declare(String)
+V.Local.sSUMAMOUNT.Declare(String)
+v.Local.iFor.Declare(long,0)
+v.Local.fRet.Declare(float)
+v.Local.sfilter.Declare(string)
+v.Local.sHdr.Declare(string)
+v.Local.sDet.Declare(string)
+v.Local.sYear.Declare(string)
+v.Local.sMon.Declare(string)
+v.Local.sDay.Declare(string)
+v.Local.sMonth.Declare(string)
+v.Local.RECTYPE.Declare(string,"OEN")
+v.Local.sPAYTYPE.Declare(string)
+v.Local.BATCHTYP.Declare(string,"T") 
+v.Local.SHFTCD.Declare(string)
+v.Local.PROJECT.Declare(string)
+v.Local.TASK.Declare(string)
+v.Local.ASTNUM.Declare(string)
+v.Local.sRate.Declare(string)
+variable.local.datRet.Declare(date)
+variable.local.PPDATE_New.Declare(date)
+V.Local.sREFNUM_New.Declare(String)
+
+V.Local.dtStdate.Declare(Date)
+V.Local.dtEnddate.Declare(Date)
+
+V.Local.dtStdateNew.Declare(Date)
+
+f.Intrinsic.Control.If(v.Caller.Hook,=, "15290")
+	F.Intrinsic.String.Left(V.Passed.888888,8,V.Local.sCymd)
+	F.Intrinsic.String.Mid(V.Passed.888888,9,6,V.Local.sTime)
+	
+	F.Intrinsic.String.Mid(V.Passed.888888,1,4,V.Local.sYear)
+	F.Intrinsic.String.Mid(V.Passed.888888,5,2,V.Local.sMon)
+	F.Intrinsic.String.Mid(V.Passed.888888,7,2,V.Local.sDay)
+	
+'	'Test --------
+'	V.Local.sCymd.Set("20170105")
+'	V.Local.sTime.Set("143311")
+'	V.Local.sYear.Set("2017")
+'	V.Local.sMon.Set("01")
+'	v.Local.sDay.Set("05")
+'	'------------------
+
+'	f.Intrinsic.String.Build("{0}{1}{2}",V.Local.sMon,v.Local.sDay,V.Local.sYear,V.Local.sMon)
+'	
+'	Function.Intrinsic.Date.ConvertDString(V.Local.sMon,"MM/DD/YYYY", variable.local.PPDATE)
+'	'get Friday
+'	Function.Intrinsic.Date.EndOfWeek(variable.local.PPDATE,variable.local.datRet)
+'	f.Intrinsic.Date.DateAdd("d",-1,variable.local.datRet,variable.local.datRet)
+
+
+'	f.Intrinsic.String.StripCharacters
+'---------------------------------------------------------
+'	f.Intrinsic.String.Format(variable.local.datRet,"MMDDYYYY",V.Local.sREFNUM)
+'	f.Intrinsic.String.Build("BHJW{0}",V.Local.sREFNUM,V.Local.sREFNUM)
+'-------------------------------------------------------------------------
+
+'	variable.local.PPDATE_New.Set(v.local.datRet)
+
+	F.ODBC.Connection!conX.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+	
+'	F.Intrinsic.String.Concat("Select p.Employee,p.Shift, p.Type,e.Comments_2,e.Comments_3,p.Descr, p.EC, convert(p.Hours,SQL_float) as Hours , e.Dept_Employee, e.Rate, e.Differential From Pyrl_Labor_Xfer p JOIN Employee_Mstr e on p.Employee = e.Employee where e.PAY_TYPE = 'H' and p.Run_Cymd = '",V.Local.sCymd,"' AND p.Run_Time = '",V.Local.sTime,"' order by p.Employee",V.Local.sQuery)
+	F.Intrinsic.String.Concat("Select p.Employee,p.Shift, p.Type,e.Comments_2,e.Comments_3,p.Descr, p.EC, convert(p.Hours,SQL_float) as Hours , e.Dept_Employee, e.Rate, e.Differential,P.END_CYMD,P.BEG_CYMD From Pyrl_Labor_Xfer p JOIN Employee_Mstr e on p.Employee = e.Employee where e.PAY_TYPE = 'H' and p.Run_Cymd = '",V.Local.sCymd,"' AND p.Run_Time = '",V.Local.sTime,"' order by p.Employee",V.Local.sQuery)
+	
+	F.Data.DataTable.CreateFromSQL("Hdr","conx",v.Local.sQuery,True)
+		
+	f.Intrinsic.Control.If(v.dataTable.Hdr.RowCount,=,0)
+		F.Data.DataTable.Close("Hdr")
+		F.ODBC.Connection!conX.Close
+		F.Intrinsic.UI.Msgbox("No records found.","Payroll Export")
+		F.Intrinsic.Control.End
+
+	F.Intrinsic.Control.EndIf
+	
+	v.Local.TASK.set(1)
+	
+	'Start Pay period
+	v.Local.sMon.set(V.datatable.Hdr(v.Local.iFor).BEG_CYMD.fieldval)
+	
+	F.Intrinsic.String.Mid(v.local.sMon,1,4,V.Local.sYear)
+	F.Intrinsic.String.Mid(v.local.sMon,5,2,V.Local.sMonth)
+	F.Intrinsic.String.Mid(v.local.sMon,7,2,V.Local.sDay)
+	
+	f.Intrinsic.String.Build("{0}{1}{2}",V.Local.sMonth,v.Local.sDay,V.Local.sYear,V.Local.sMon)
+	Function.Intrinsic.Date.ConvertDString(V.Local.sMon,"MM/DD/YYYY", V.Local.dtStdate)
+	
+	
+'F.Intrinsic.Debug.InvokeDebugger
+
+
+
+'	'Start will be saturday
+'	f.Intrinsic.Date.DateAdd("d",-2,variable.local.dtStdate,V.Local.dtStdateNew)
+	
+	'get Friday
+	'saturday is start date so add 1 
+	f.Intrinsic.Date.DateAdd("d",1,variable.local.dtStdate,variable.local.datRet)
+	Function.Intrinsic.Date.EndOfWeek(V.Local.datRet,variable.local.datRet)
+	f.Intrinsic.Date.DateAdd("d",-1,variable.local.datRet,variable.local.datRet)
+	
+
+	'END Pay period
+
+	v.Local.sMon.set(V.datatable.Hdr(v.Local.iFor).END_CYMD.fieldval)
+	
+	F.Intrinsic.String.Mid(v.local.sMon,1,4,V.Local.sYear)
+	F.Intrinsic.String.Mid(v.local.sMon,5,2,V.Local.sMonth)
+	F.Intrinsic.String.Mid(v.local.sMon,7,2,V.Local.sDay)
+	
+	f.Intrinsic.String.Build("{0}{1}{2}",V.Local.sMonth,v.Local.sDay,V.Local.sYear,V.Local.sMon)
+	Function.Intrinsic.Date.ConvertDString(V.Local.sMon,"MM/DD/YYYY", V.Local.dtEnddate)
+	
+F.Intrinsic.Debug.Stop
+	f.Intrinsic.Control.If(v.Global.lSel,=,1)
+		f.Intrinsic.Date.DateAdd("d",7,variable.local.dtEnddate,variable.local.dtEnddate)
+'	f.Intrinsic.Control.Else
+'		f.Intrinsic.Date.DateAdd("d",7,variable.local.dtEnddate,variable.local.dtEnddate)
+	f.Intrinsic.Control.endif
+
+	
+'	f.Intrinsic.String.Build("{0}{1}{2}",V.Local.sMon,v.Local.sDay,V.Local.sYear,V.Local.sREFNUM_New)
+'	f.Intrinsic.String.Build("BHJW{0}",V.Local.sREFNUM_New,V.Local.sREFNUM_New)
+
+
+	V.Local.sREFNUM_New.Set(V.Local.datRet.FormatMMDDYYYY)
+	f.Intrinsic.String.Build("WHJW{0}",variable.local.sREFNUM_New,V.Local.sREFNUM_New)
+			
+'	V.Local.sEmp.Set(V.datatable.Hdr(v.Local.iFor).Employee.fieldvaltrim)
+'		Function.Data.DataTable.Compute("Orders", "Sum(unitprice * qty)","Order = '123456'",v.lo.fRet)
+	f.Intrinsic.String.Build("Employee <> '{0}'","",v.Local.sfilter)
+	
+	Function.Data.DataTable.Compute("Hdr", "Sum(Hours)",v.Local.sfilter,v.Local.fRet)
+	Function.Intrinsic.String.Format(v.Local.fRet,"####.00", V.Local.sSUMHoursHDR)
+	
+	f.Intrinsic.Math.Mult(v.Local.fRet,V.datatable.Hdr(v.Local.iFor).Rate.fieldval,v.Local.fRet)
+'		V.Local.fSUMHOURS.Format* 
+	''V.Local.sqty.Set(V.Local.sqty.Format*0.0000)
+	Function.Intrinsic.String.Format(v.Local.fRet,"####.00", V.Local.sSUMAMOUNT)
+	
+	Function.Data.DataTable.Compute("Hdr", "count(Employee)",v.Local.sfilter,V.Local.LINECNT)
+	
+	'new change
+	V.Local.sSUMAMOUNT.Set("0")
+
+
+	V.Local.RECID.Set("H")
+'	f.Intrinsic.String.Build("{0},{1},{2},{3},{4},{5},{6}",V.Local.RECID,v.local.PPDATE_New,V.Local.sPAYNAM,V.Local.sREFNUM_New,V.Local.LINECNT,V.Local.sSUMHoursHDR,V.Local.sSUMAMOUNT,v.Local.sHdr)
+
+	f.Intrinsic.String.Build("{0},{1},{2},{3},{4},{5},{6}",V.Local.RECID,V.Local.dtEnddate,V.Local.sPAYNAM,V.Local.sREFNUM_New,V.Local.LINECNT,V.Local.sSUMHoursHDR,V.Local.sSUMAMOUNT,v.Local.sHdr)
+
+
+	F.Intrinsic.Control.For(v.Local.iFor,0,v.dataTable.Hdr.RowCount--,1)
+
+		'Details
+		V.Local.RECID.Set("D")
+		
+		V.Local.sEmp.Set(V.datatable.Hdr(v.Local.iFor).Employee.fieldvaltrim)
+		f.Intrinsic.String.Build("Employee='{0}'",V.Local.sEmp,v.Local.sfilter)
+	
+'		Function.Data.DataTable.Compute("Hdr", "Sum(Hours)",v.Local.sfilter,v.Local.fRet)
+		v.Local.fRet.set(V.datatable.Hdr(v.Local.iFor).Hours.fieldval)
+		Function.Intrinsic.String.Format(v.Local.fRet,"####.00", V.Local.sSUMHours)
+		
+'		v.Local.SHFTCD.Set(V.datatable.Hdr(v.Local.iFor).Shift.fieldval)
+		v.Local.SHFTCD.Set("")
+'		v.Local.WKDATE.Set(variable.local.PPDATE)
+
+		f.Intrinsic.String.LPad(V.datatable.Hdr(v.Local.iFor).COMMENTS_2.fieldvaltrim,0,5,v.Local.PROJECT)
+		
+'		v.Local.TASK.set(V.datatable.Hdr(v.Local.iFor).COMMENTS_2.fieldvaltrim)
+		v.Local.ASTNUM.set(V.datatable.Hdr(v.Local.iFor).COMMENTS_3.fieldvaltrim)
+		
+		'when Holiday EC will have values
+		f.Intrinsic.Control.If(V.datatable.Hdr(v.Local.iFor).EC.fieldvaltrim,<>,"")
+			Function.Intrinsic.String.Right(V.datatable.Hdr(v.Local.iFor).EC.fieldvaltrim, 1,v.Local.sPAYTYPE)
+		f.Intrinsic.Control.else
+			v.Local.sPAYTYPE.Set(V.datatable.Hdr(v.Local.iFor).Descr.fieldvaltrim)
+			f.Intrinsic.String.Split(v.Local.sPAYTYPE,"-",v.Local.sPAYTYPE)
+			v.Local.sPAYTYPE.Set(v.Local.sPAYTYPE(0))
+		f.Intrinsic.Control.EndIf 
+		
+'		v.Local.sRate.Set(V.datatable.Hdr(v.Local.iFor).Rate.fieldval)
+'		Function.Intrinsic.String.Format(V.datatable.Hdr(v.Local.iFor).Rate.fieldval,"####.00000", V.Local.sRate)
+		v.Local.sRate.Set("")
+		
+'		Detail: RECID, PPDATE, REFNUM, WKDATE, RECTYPE, ASTNUM, RATE, PAYTYPE, BATCHTYP, SHFTCD, VALUE, PROJECT, TASK
+
+		'HDR & DET in one file.
+'		f.Intrinsic.String.Build("{0}{1}{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}",v.Local.sHdr,v.Ambient.NewLine,V.Local.RECID,v.local.PPDATE_New,V.Local.sREFNUM_New,v.Local.WKDATE,V.Local.RECTYPE,V.Local.ASTNUM,V.Local.sRate,v.Local.sPAYTYPE,v.Local.BATCHTYP,v.Local.SHFTCD,V.Local.sSUMHours,v.Local.PROJECT,v.Local.TASK,v.Local.sHdr)
+		F.Intrinsic.Debug.Stop
+'		f.Intrinsic.String.Build("{0}{1}{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}",v.Local.sHdr,v.Ambient.NewLine,V.Local.RECID,V.Local.dtEnddate,V.Local.sREFNUM_New,v.Local.dtStdate,V.Local.RECTYPE,V.Local.ASTNUM,V.Local.sRate,v.Local.sPAYTYPE,v.Local.BATCHTYP,v.Local.SHFTCD,V.Local.sSUMHours,v.Local.PROJECT,v.Local.TASK,v.Local.sHdr)
+
+'updated column 4
+		f.Intrinsic.String.Build("{0}{1}{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}",v.Local.sHdr,v.Ambient.NewLine,V.Local.RECID,V.Local.dtEnddate,V.Local.sREFNUM_New,V.Local.dtEnddate,V.Local.RECTYPE,V.Local.ASTNUM,V.Local.sRate,v.Local.sPAYTYPE,v.Local.BATCHTYP,v.Local.SHFTCD,V.Local.sSUMHours,v.Local.PROJECT,v.Local.TASK,v.Local.sHdr)
+	F.Intrinsic.Control.Next(v.Local.iFor)
+	
+	
+
+'	F.Intrinsic.Control.CallSub(Writetofile,"Hdr",V.Local.sHdr,"Det",V.Local.sDet)
+	F.Intrinsic.Control.CallSub(Writetofile,"Hdr",V.Local.sHdr,"TME",V.Local.sREFNUM_New)
+	
+	F.Data.DataTable.Close("Hdr")
+	F.ODBC.Connection!conX.Close
+F.Intrinsic.Control.EndIf
+
+
+
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GenerateFile_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_PayrollExport.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.GenerateFile.End
+
+Program.Sub.cmdOk_Click.Start
+F.Intrinsic.Control.SetErrorHandler("GenerateFile_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+f.Intrinsic.Control.If(v.Screen.frmSelection!opt1.Value,=,False)
+f.Intrinsic.Control.andIf(v.Screen.frmSelection!opt2.Value,=,False)
+	f.Intrinsic.UI.Msgbox("Please make the week selection")
+	F.Intrinsic.Control.ExitSub
+f.Intrinsic.Control.elseIf(v.Screen.frmSelection!opt1.Value,=,True)
+	v.Global.lsel.set(1)
+f.Intrinsic.Control.elseIf(v.Screen.frmSelection!opt2.Value,=,True)
+	v.Global.lsel.set(2)
+f.Intrinsic.Control.EndIf 
+
+gui.frmSelection..Visible(false)
+f.Intrinsic.Control.CallSub(generatefile)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GenerateFile_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_PayrollExport.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.cmdOk_Click.End
+
+Program.Sub.frmSelection_UnLoad.Start
+F.Intrinsic.Control.SetErrorHandler("cmdOk_Click_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+f.Intrinsic.Control.End 
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("cmdOk_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_PayrollExport.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.frmSelection_UnLoad.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_4256_PayrollExport.g2u$}$RAN$}$11/30/2016 10:08:15 AM$}$False
+${$3$}$0$}$$}$0$}$-1$}$$}$12:00:00 AM$}$Modification of ARC Project 1507 original program GCG_6963-2_Multi_MRP.gas
+This adds in the ability to save the Summary for later use.
+Program.Sub.Comments.End
