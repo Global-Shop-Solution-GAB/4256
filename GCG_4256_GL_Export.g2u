@@ -1,0 +1,217 @@
+Program.Sub.Preflight.Start
+Variable.Global.sExport.Declare(String)
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass,72000)
+
+'ending program if hook isn't 42400
+F.Intrinsic.Control.If(V.Caller.Hook,<>,42400)
+	F.Intrinsic.Control.CallSub(close)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.CallSub(getbatchnumbers)
+
+F.Intrinsic.Control.CallSub(export)
+
+F.Intrinsic.Control.CallSub(close)
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_GL_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(close)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+Program.Sub.GetData.Start
+F.Intrinsic.Control.SetErrorHandler("GetData_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+
+F.Intrinsic.String.Build("Select db_cr_flag as type, Amount, left(gl_account,5) as cost_center, right(gl_account,4) as sub_account, substring(gl_account,6,4) as account, batch_num, batch_line, gl_account from V_GL_DETAIL where Batch_Num = '{0}' and ((db_cr_flag = 'D' and appl_type <> 'AR') or (db_cr_flag = 'D' and appl_type <> 'AR') or (db_cr_flag = 'C' and appl_type <> 'AR') or (db_cr_flag = 'C' and appl_type <> 'AR')) order by Batch_Line",V.Args.Batch_Num,V.Local.sSql)
+'creating datatable from sql statement
+F.Data.DataTable.CreateFromSQL("GL","con",V.Local.sSql,True)
+
+F.Intrinsic.String.Build("Select Batch as batch_num, Line as batch_line, User_1 as Project, b.Order_No From V_GL_JRNL_ENTRY a join V_Order_Hist_Head b on a.invoice_no = b.invoice Where Batch = '{0}'",V.Args.Batch_Num,V.Local.sSql)
+F.Data.DataTable.CreateFromSQL("Invoice","con",V.Local.sSql,True)
+
+F.Data.DataTable.AddColumn("GL","Project","String")
+F.Data.DataTable.AddColumn("GL","Order_No","String")
+
+F.Data.DataTable.Merge("Invoice","GL",False,4)
+
+F.Data.DataTable.Close("Invoice")
+
+F.Intrinsic.UI.InvokeWaitDialog("Creating Text file")
+
+F.Intrinsic.Control.CallSub(createfile)
+
+F.Data.DataTable.Close("GL")
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GetData_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_GL_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(close)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.GetData.End
+
+Program.Sub.Export.Start
+F.Intrinsic.Control.SetErrorHandler("Export_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sDir.Declare(String)
+V.Local.bRet.Declare(Boolean,False)
+V.Local.sNow.Declare(String)
+
+'checking to see if GL directory exist if not creating the directory
+F.Intrinsic.String.Build("{0}\GL_Export",V.Caller.FilesDir,V.Local.sDir)
+F.Intrinsic.File.DirExists(V.Local.sDir,V.Local.bRet)
+F.Intrinsic.Control.If(V.Local.bRet,=,False)
+	F.Intrinsic.File.CreateDir(V.Local.sDir)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.If(V.Global.sExport.Length,=,0)
+	F.Intrinsic.UI.Msgbox("No Data to Export")
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Format(V.Ambient.Now,"MMDDYYYYHHNNSS",V.Local.sNow)
+	F.Intrinsic.String.Build("{0}\{1}_GL.csv",V.Local.sDir,V.Local.sNow,V.Local.sDir)
+	F.Intrinsic.File.String2File(V.Local.sDir,V.Global.sExport)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Export_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_GL_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(close)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Export.End
+
+Program.Sub.Close.Start
+F.Intrinsic.Control.SetErrorHandler("Close_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+F.Intrinsic.UI.CloseWaitDialog
+
+F.Intrinsic.Control.If(V.DataTable.GL.Exist,=,True)
+	F.Data.DataTable.Close("GL")
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.If(V.DataTable.Invoice.Exist,=,True)
+	F.Data.DataTable.Close("Invoice")
+F.Intrinsic.Control.EndIf
+
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Close_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_GL_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End
+
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Close.End
+
+Program.Sub.GetBatchNumbers.Start
+F.Intrinsic.Control.SetErrorHandler("GetBatchNumbers_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+
+'loop through all the Batch Codes
+F.Intrinsic.String.Build("select distinct Batch_num from v_BI_COMB_JE_AUDIT where  Rptid = '000817' and trmnl = '{0}'",V.Caller.Terminal,V.Local.sSql)
+
+F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+	F.Intrinsic.Control.DoUntil(V.ODBC.con!rst.EOF)
+		F.Intrinsic.Control.CallSub(getdata,"Batch_Num",V.ODBC.con!rst.FieldValLTrim!Batch_Num)
+		F.ODBC.con!rst.MoveNext
+	F.Intrinsic.Control.Loop
+F.Intrinsic.Control.Else
+	F.Intrinsic.Control.CallSub(close)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GetBatchNumbers_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_GL_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(close)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.GetBatchNumbers.End
+
+Program.Sub.CreateFile.Start
+F.Intrinsic.Control.SetErrorHandler("CreateFile_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.i.Declare(Long)
+V.Local.fCredit.Declare(Float)
+
+F.Intrinsic.Control.If(V.DataTable.GL.Rowcount--,<>,-1)
+	F.Intrinsic.Control.For(V.Local.i,0,V.DataTable.GL.Rowcount--,1)
+		F.Intrinsic.Control.If(V.DataTable.GL(V.Local.i).type!FieldValTrim,=,"D")
+			F.Intrinsic.String.Build("{0}{1}||00001|{2}|{4}|{3}",V.Global.sExport,V.DataTable.GL.Amount(V.Local.i)!FieldValTrim,V.DataTable.GL.Cost_Center(V.Local.i)!FieldValTrim,V.DataTable.GL.Account(V.Local.i)!FieldValTrim,V.DataTable.GL.Project(V.Local.i)!FieldValTrim,V.Global.sExport)
+		F.Intrinsic.Control.Else
+			F.Intrinsic.Math.Mult(V.DataTable.GL.Amount(V.Local.i)!FieldValTrim,-1,V.Local.fCredit)
+			F.Intrinsic.String.Build("{0}|{1}|00001|{2}|{4}|{3}",V.Global.sExport,V.Local.fCredit,V.DataTable.GL.Cost_Center(V.Local.i)!FieldValTrim,V.DataTable.GL.Account(V.Local.i)!FieldValTrim,V.DataTable.GL.Project(V.Local.i)!FieldValTrim,V.Global.sExport)
+		F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.If(V.DataTable.GL.Project(V.Local.i)!FieldValTrim,<>," ")
+				F.Intrinsic.String.Build("{0}|{1}|GSS GL Export {2}|{3}|",V.Global.sExport,V.DataTable.GL.sub_account(V.Local.i)!FieldValTrim,V.DataTable.GL.Batch_Num(V.Local.i)!FieldValTrim,V.DataTable.GL.Order_No(V.Local.i)!FieldValTrim,V.Global.sExport)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.String.Build("{0}|{1}|GSS GL Export {2}||",V.Global.sExport,V.DataTable.GL.sub_account(V.Local.i)!FieldValTrim,V.DataTable.GL.Batch_Num(V.Local.i)!FieldValTrim,V.Global.sExport)
+			F.Intrinsic.Control.EndIf
+			
+			F.Intrinsic.String.Build("{0}|||{1}",V.Global.sExport,V.Ambient.NewLine,V.Global.sExport)	
+	F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("CreateFile_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_GL_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(close)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.CreateFile.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$RLK$}$11/28/2016 9:19:42 AM$}$False
+${$3$}$0$}$$}$0$}$-1$}$$}$12:00:00 AM$}$This program will generate a custom delimited files that will be generated at the time of the Batch is posted. This will occur when the AR Pipe Delimited .txt, AP CSV, and GL CSV batches are fully posted in Global Shop. We will also export Employee Hours as a CSV file when ran from a custom menu item.
+
+This is the AR portion of the export. Whenever an AR batch is processed this program will run.
+Program.Sub.Comments.End
