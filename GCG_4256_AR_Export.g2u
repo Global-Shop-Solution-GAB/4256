@@ -1,0 +1,222 @@
+Program.Sub.Preflight.Start
+Variable.Global.sDirectory.Declare(String)
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+F.Intrinsic.Control.If(V.Caller.Hook,=,42400)
+	F.Intrinsic.Control.CallSub(Check_Directory)
+	F.Intrinsic.Control.CallSub(BuildFile)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.CallSub(unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_AR_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.unload.Start
+F.Intrinsic.Control.SetErrorHandler("unload_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_AR_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End
+
+Function.Intrinsic.Control.EndIf
+Program.Sub.unload.End
+
+Program.Sub.Check_Directory.Start
+F.Intrinsic.Control.SetErrorHandler("Check_Directory_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.bExists.Declare(Boolean)
+
+'We need to make sure that the directory exists before continuing, if not we need to create it.
+F.Intrinsic.String.Build("{0}\AR_EXPORT",V.Caller.FilesDir,V.Global.sDirectory)
+F.Intrinsic.File.DirExists(V.Global.sDirectory,V.Local.bExists)
+
+F.Intrinsic.Control.If(V.Local.bExists,<>,True)
+	F.Intrinsic.File.CreateDir(V.Global.sDirectory)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Check_Directory_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_AR_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Check_Directory.End
+
+Program.Sub.BuildFile.Start
+F.Intrinsic.Control.SetErrorHandler("BuildFile_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSQL.Declare(String)
+V.Local.sFile.Declare(String)
+V.Local.sRow.Declare(String)
+V.Local.sFilePath.Declare(String)
+V.Local.sNow.Declare(String)
+V.Local.sInterfaceSource.Declare(String)
+V.Local.sBatchSource.Declare(String)
+V.Local.sTransactionType.Declare(String)
+V.Local.sBatchName.Declare(String)
+V.Local.sInvoiceNumber.Declare(String)
+V.Local.sInvoiceDate.Declare(String)
+V.Local.sClientNum.Declare(String)
+V.Local.sContactName.Declare(String)
+V.Local.sProjectNum.Declare(String)
+V.Local.sLineNum.Declare(String)
+V.Local.sUnitOfMeasure.Declare(String)
+V.Local.sQuantity.Declare(String)
+V.Local.sUnitPrice.Declare(String)
+V.Local.sCurrencyCode.Declare(String)
+V.Local.sCurrencyRate.Declare(String)
+V.Local.sRateDate.Declare(String)
+V.Local.sTrxType.Declare(String)
+V.Local.sGLEntity.Declare(String)
+V.Local.sGLCostCenter.Declare(String)
+V.Local.sGLAccount.Declare(String)
+V.Local.sGLSubAccount.Declare(String)
+V.Local.sGLReserved.Declare(String)
+'Currently blank
+V.Local.sReference.Declare(String)
+V.Local.sDescription.Declare(String)
+
+'Get the batch numbers for AR batches
+F.Intrinsic.String.Build("SELECT DISTINCT BATCH_NUM FROM V_BI_COMB_JE_AUDIT WHERE RPTID = '000817' AND TRMNL = '{0}' AND APPL_TYPE = 'AR'",V.Caller.Terminal,V.Local.sSQL)
+F.ODBC.Connection!con.OpenLocalRecordsetRO("rstBatch",V.Local.sSQL)
+
+F.Intrinsic.Control.DoUntil(V.ODBC.con!rstBatch.EOF,=,True)
+	V.Local.sBatchName.Set(V.ODBC.con!rstBatch.FieldValTrim!BATCH_NUM)
+	
+	'Get the AR_OPEN_ITEMS information
+	F.Intrinsic.String.Build("SELECT DISTINCT INVOICE,DATE_INVOICE,CUSTOMER,EXCHANGE_CURR,EXCHANGE_RATE,DATE_EXCHANGE,ORDER_NO FROM V_AR_OPEN_ITEMS WHERE BATCH_NUM = '{0}' ORDER BY BATCH_NUM,INVOICE",V.Local.sBatchName,V.Local.sSQL)
+	F.ODBC.Connection!con.OpenLocalRecordsetRO("rstAR",V.Local.sSQL)
+	
+	F.Intrinsic.Control.DoUntil(V.ODBC.con!rstAR.EOF,=,True)
+		'Check to see if the invoice number is different
+		F.Intrinsic.Control.If(V.ODBC.con!rstAR.FieldValTrim!INVOICE,<>,V.Local.sInvoiceNumber)
+			V.Local.sInvoiceNumber.Set(V.ODBC.con!rstAR.FieldValTrim!INVOICE)
+		F.Intrinsic.Control.EndIf
+		
+		'Get the total amount for batch 10 codes
+		F.Intrinsic.String.Build("SELECT SUM(AMT_INVOICE) AS AMTINVOICE FROM V_AR_OPEN_ITEMS WHERE BATCH_NUM = '{0}' AND INVOICE = '{1}' AND BATCH_CODE = '10'",V.Local.sBatchName,V.Local.sInvoiceNumber,V.Local.sSQL)
+		F.ODBC.Connection!con.OpenLocalRecordsetRO("rstAmount",V.Local.sSQL)
+		
+		F.Intrinsic.Control.If(V.ODBC.con!rstAmount.EOF,<>,True)
+			V.Local.sUnitPrice.Set(V.ODBC.con!rstAmount.FieldVal!AMTINVOICE)
+		F.Intrinsic.Control.EndIf
+		
+		F.ODBC.con!rstAmount.Close
+		
+		'Dates are formatted MMDDYYYY
+		F.Intrinsic.String.Format(V.ODBC.con!rstAR.FieldValTrim!DATE_INVOICE,"MMDDYYYY",V.Local.sInvoiceDate)
+		V.Local.sClientNum.Set(V.ODBC.con!rstAR.FieldValTrim!CUSTOMER)
+		V.Local.sCurrencyCode.Set(V.ODBC.con!rstAR.FieldValTrim!EXCHANGE_CURR)
+		
+		'if exchange rate is 0 then it needs to be set to blank
+		F.Intrinsic.Control.If(V.ODBC.con!rstAR.FieldVal!EXCHANGE_RATE,<>,0)
+			V.Local.sCurrencyRate.Set(V.ODBC.con!rstAR.FieldValTrim!EXCHANGE_RATE)
+		F.Intrinsic.Control.Else
+			V.Local.sCurrencyRate.Set("")
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.String.Format(V.ODBC.con!rstAR.FieldValTrim!DATE_EXCHANGE,"MMDDYYYY",V.Local.sRateDate)
+		
+		'Hard coded values
+		V.Local.sInterfaceSource.Set("JWW")
+		V.Local.sBatchSource.Set("LEGACY SYSTEM INTERFACE")
+		V.Local.sTransactionType.Set("LEGACY INVOICE")
+		V.Local.sUnitOfMeasure.Set("EA")
+		V.Local.sTrxType.Set("INV")
+		V.Local.sGLEntity.Set("0382")
+		V.Local.sGLCostCenter.Set("00000")
+		V.Local.sGLAccount.Set("1110")
+		V.Local.sGLSubAccount.Set("0000")
+		V.Local.sGLReserved.Set("00000")
+		V.Local.sQuantity.Set("1")
+		V.Local.sLineNum.Set("1")
+		
+		'Have to go to Order Header to get the User 1 field for project number
+		F.Intrinsic.String.Build("SELECT USER_1,CONTACT FROM V_ORDER_HIST_HEAD WHERE ORDER_NO = '{0}'",V.ODBC.con!rstAR.FieldValTrim!ORDER_NO,V.Local.sSQL)
+		F.ODBC.Connection!con.OpenLocalRecordsetRO("rstProject",V.Local.sSQL)
+		
+		F.Intrinsic.Control.If(V.ODBC.con!rstProject.EOF,<>,True)
+			V.Local.sProjectNum.Set(V.ODBC.con!rstProject.FieldValTrim!USER_1)
+			V.Local.sContactName.Set(V.ODBC.con!rstProject.FieldValTrim!CONTACT)
+		F.Intrinsic.Control.EndIf
+		
+		F.ODBC.con!rstProject.Close
+		
+		'Build the row to add it to the export file
+		F.Intrinsic.String.Build("{0},{1},{2},{3},{4},{5},{6}",V.Local.sInterfaceSource,V.Local.sBatchSource,V.Local.sTransactionType,V.Local.sBatchName,V.Local.sInvoiceNumber,V.Local.sInvoiceDate,V.Local.sClientNum,V.Local.sRow)
+		F.Intrinsic.String.Build("{0},{1},{2},{3},{4},{5},{6}",V.Local.sRow,V.Local.sContactName,V.Local.sProjectNum,V.Local.sLineNum,V.Local.sUnitOfMeasure,V.Local.sQuantity,V.Local.sUnitPrice,V.Local.sRow)
+		F.Intrinsic.String.Build("{0},{1},{2},{3},{4},{5},{6}",V.Local.sRow,V.Local.sCurrencyCode,V.Local.sCurrencyRate,V.Local.sRateDate,V.Local.sReference,V.Local.sDescription,V.Local.sTrxType,V.Local.sRow)
+		F.Intrinsic.String.Build("{0},{1},{2},{3},{4},{5}",V.Local.sRow,V.Local.sGLEntity,V.Local.sGLCostCenter,V.Local.sGLAccount,V.Local.sGLSubAccount,V.Local.sGLReserved,V.Local.sRow)
+		
+		'Check to see if there is any data yet in the export file
+		F.Intrinsic.Control.If(V.Local.sFile.Trim,=,"")
+			V.Local.sFile.Set(V.Local.sRow)
+		F.Intrinsic.Control.Else
+			F.Intrinsic.String.Build("{0}{1}{2}",V.Local.sFile,V.Ambient.NewLine,V.Local.sRow,V.Local.sFile)
+		F.Intrinsic.Control.EndIf
+		
+		F.ODBC.con!rstAR.MoveNext
+	F.Intrinsic.Control.Loop
+	
+	F.ODBC.con!rstAR.Close
+	F.ODBC.con!rstBatch.MoveNext
+F.Intrinsic.Control.Loop
+
+F.ODBC.con!rstBatch.Close
+
+'If no data was found don't create export
+F.Intrinsic.Control.If(V.Local.sFile.Trim,<>,"")
+	'Create file
+	F.Intrinsic.String.Format(V.Ambient.Now,"MMDDYYYYHHNNSS",V.Local.sNow)
+	F.Intrinsic.String.Build("{0}\{1}_AR.csv",V.Global.sDirectory,V.Local.sNow,V.Local.sFilePath)
+	F.Intrinsic.File.String2File(V.Local.sFilePath,V.Local.sFile)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("BuildFile_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4256_AR_Export.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.BuildFile.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_4256_AR_Export.g2u$}$BCC$}$11/8/2016 1:12:29 PM$}$False
+${$3$}$0$}$$}$0$}$-1$}$$}$12:00:00 AM$}$This program will generate a custom delimited files that will be generated at the time of the Batch is posted. This will occur when the AR Pipe Delimited .txt, AP CSV, and GL CSV batches are fully posted in Global Shop. We will also export Employee Hours as a CSV file when ran from a custom menu item.
+
+This is the AR portion of the export. Whenever an AR batch is processed this program will run.
+Program.Sub.Comments.End
